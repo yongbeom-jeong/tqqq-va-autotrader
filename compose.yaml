@@ -1,0 +1,17 @@
+services:
+  trader:
+    build:
+      context: .
+    image: tqqq-va-autotrader:local
+    env_file:
+      - .env
+    init: true
+    user: "${PUID:-1000}:${PGID:-1000}"
+    volumes:
+      - ./data:/app/data
+    command: ["python", "main.py", "dry-run"]
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
