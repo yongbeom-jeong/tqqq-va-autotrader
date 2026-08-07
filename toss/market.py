@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from toss.client import TossClient
 
@@ -20,8 +21,14 @@ class MarketAPI:
     def orderbook(self, symbol: str) -> dict[str, Any]:
         return self.client.get("/api/v1/orderbook", params={"symbol": symbol})
 
-    def us_calendar(self) -> dict[str, Any]:
-        return self.client.get("/api/v1/market-calendar/US")
+    def us_calendar(self, market_date: date | None = None) -> dict[str, Any]:
+        # The API's `date` parameter is a US-local calendar date. Around KST
+        # midnight, the same trading session still belongs to the previous US
+        # date, so using the Korean date incorrectly selects a weekend/holiday.
+        market_date = market_date or datetime.now(ZoneInfo("America/New_York")).date()
+        return self.client.get(
+            "/api/v1/market-calendar/US", params={"date": market_date.isoformat()}
+        )
 
 
 def current_us_session(calendar: dict[str, Any], now: datetime | None = None) -> str:
@@ -37,4 +44,3 @@ def current_us_session(calendar: dict[str, Any], now: datetime | None = None) ->
         if start <= now.astimezone(start.tzinfo) < end:
             return label
     return "CLOSED"
-

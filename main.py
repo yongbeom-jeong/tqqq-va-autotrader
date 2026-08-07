@@ -230,7 +230,7 @@ def run_live(settings: Settings, client: TossClient) -> str:
     account_seq = choose_account(account_api.accounts(), settings.account_seq)
     session = current_us_session(market.us_calendar())
     if session == "CLOSED":
-        raise RuntimeError("US market is closed; live execution stopped.")
+        return "LIVE RUN\nUS market session: CLOSED\nNo orders submitted."
     relevant = [o for o in orders_api.open_orders(account_seq)
                 if o.get("symbol", "").upper() in {settings.symbol, settings.reserve_symbol}]
     if relevant:

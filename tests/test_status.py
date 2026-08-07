@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 import pytest
 
 from config import Settings
-from main import build_status, choose_account
+from main import build_status, choose_account, run_live
 from toss.client import TossAPIError, TossClient
 from toss.market import current_us_session
 
@@ -46,6 +46,18 @@ def test_current_us_session_uses_api_times():
                                                 "endTime": "2026-08-07T20:00:00+00:00"}}}
     assert current_us_session(calendar, datetime(2026, 8, 7, 15, tzinfo=timezone.utc)) == "REGULAR"
     assert current_us_session(calendar, datetime(2026, 8, 7, 21, tzinfo=timezone.utc)) == "CLOSED"
+
+
+def test_us_calendar_uses_us_local_date():
+    session = FakeSession([
+        FakeResponse(200, {"access_token": "token", "expires_in": 86400}),
+        FakeResponse(200, {"result": {"today": {}}}),
+    ])
+    client = TossClient(settings(), session=session)
+    from toss.market import MarketAPI
+
+    MarketAPI(client).us_calendar(datetime(2026, 8, 7).date())
+    assert session.calls[-1][2]["params"] == {"date": "2026-08-07"}
 
 
 def test_http_error_exposes_safe_api_message_without_credentials():
@@ -98,3 +110,18 @@ def test_status_cycle_is_read_only_and_formats_empty_holding():
     assert "Open TQQQ Orders\nNone" in output
     assert [method for method, _, _ in session.calls].count("POST") == 1
     assert session.calls[-1][2]["params"] == {"status": "OPEN", "symbol": "TQQQ"}
+
+
+def test_live_run_closed_market_exits_successfully_without_order_calls():
+    responses = [
+        FakeResponse(200, {"access_token": "token", "expires_in": 86400}),
+        FakeResponse(200, {"result": [{"accountSeq": 1, "accountType": "BROKERAGE"}]}),
+        FakeResponse(200, {"result": {"today": {
+            "dayMarket": None, "preMarket": None, "regularMarket": None, "afterMarket": None
+        }}}),
+    ]
+    session = FakeSession(responses)
+    live_settings = settings(dry_run=False)
+    output = run_live(live_settings, TossClient(live_settings, session=session))
+    assert output == "LIVE RUN\nUS market session: CLOSED\nNo orders submitted."
+    assert [call[1].rsplit("/", 1)[-1] for call in session.calls] == ["token", "accounts", "US"]
