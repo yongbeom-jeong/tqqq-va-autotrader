@@ -1,0 +1,1 @@
+﻿# tqqq-va-autotrader
