@@ -89,6 +89,10 @@ python -m pytest
 
 테스트는 mock 응답만 사용하므로 Toss credential이나 네트워크가 필요하지 않습니다.
 
+부팅 직후 LAN은 연결됐지만 DNS가 아직 준비되지 않은 경우를 위해 systemd 서비스는
+`openapi.tossinvest.com` 이름 해석을 최대 5분간 기다린 후 컨테이너를 시작합니다.
+preflight가 실패하면 애플리케이션이나 주문 API를 실행하지 않고 종료합니다.
+
 ## Raspberry Pi deployment
 
 Raspberry Pi OS 64-bit와 Docker Engine + Docker Compose 플러그인을 권장합니다.

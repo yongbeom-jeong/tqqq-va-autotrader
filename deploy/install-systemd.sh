@@ -66,6 +66,7 @@ Wants=network-online.target
 Type=oneshot
 User=${SERVICE_USER}
 WorkingDirectory=${REPO_DIR}
+ExecStartPre=/bin/sh ${REPO_DIR}/deploy/wait-for-network.sh openapi.tossinvest.com
 ExecStart=${DOCKER_BIN} compose run --rm trader python main.py ${MODE}
 TimeoutStartSec=15min
 Nice=10
