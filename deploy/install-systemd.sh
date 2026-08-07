@@ -66,7 +66,7 @@ Wants=network-online.target
 Type=oneshot
 User=${SERVICE_USER}
 WorkingDirectory=${REPO_DIR}
-ExecStart=${DOCKER_BIN} compose run --rm --no-build trader python main.py ${MODE}
+ExecStart=${DOCKER_BIN} compose run --rm trader python main.py ${MODE}
 TimeoutStartSec=15min
 Nice=10
 
@@ -94,4 +94,3 @@ systemctl enable --now tqqq-va-autotrader.timer
 echo "Installed in ${MODE} mode."
 echo "Next run: systemctl list-timers tqqq-va-autotrader.timer"
 echo "Logs: journalctl -u tqqq-va-autotrader.service -n 100 --no-pager"
-
