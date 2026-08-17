@@ -21,6 +21,62 @@ Copy-Item .env.example .env
 `VA_PATH_FILE`을 변경하세요. 날짜는 한국시간 기준 `YYYY-MM-DD`, 금액은 `$`와
 천 단위 쉼표가 없는 USD 숫자로 입력합니다.
 
+## VA 경로 CSV 유지보수
+
+앞으로 정기적으로 갱신해야 하는 파일은 기본적으로 `data/va_path.csv`입니다.
+현재 데이터의 마지막 날짜가 지나기 전에 다음 달 경로를 추가합니다. 미국장
+휴장일이나 주말에도 프로그램은 매시간 실행되므로 날짜가 비지 않도록 달력의 모든
+날짜를 넣는 것을 권장합니다.
+
+첫 줄과 열 순서는 다음 형식을 그대로 유지합니다.
+
+```csv
+date,target_value,lower_band,upper_band
+YYYY-MM-DD,목표가,밴드하단,밴드상단
+```
+
+두 번째 줄은 형식 설명용이며 실제 파일에는 엑셀에서 확인한 숫자를 입력합니다.
+
+- `date`: 한국시간 기준 날짜, `YYYY-MM-DD`
+- `target_value`: 해당 날짜의 목표 가치
+- `lower_band`: 매수 판단에 사용하는 밴드 하단
+- `upper_band`: 매도 판단에 사용하는 밴드 상단
+- 금액: USD 숫자만 입력하며 `$`와 천 단위 쉼표는 넣지 않음
+- 각 날짜는 한 번만 입력하며 `0 < lower_band < target_value < upper_band`를 만족해야 함
+
+엑셀에서 복사할 때는 수식 자체가 아니라 계산된 값을 소수점 둘째 자리까지
+입력합니다. 기존 마지막 행 아래에 날짜순으로 추가하고 헤더를 다시 붙이지 않습니다.
+갱신 후 Windows 개발 PC에서 다음 명령으로 변경 내용과 테스트를 확인합니다.
+
+```powershell
+git diff -- data/va_path.csv
+python -m pytest
+```
+
+문제가 없으면 CSV만 커밋하고 GitHub에 올립니다.
+
+```powershell
+git add data/va_path.csv
+git commit -m "data: add October VA path"
+git push origin main
+```
+
+실전 운용 중인 Raspberry Pi에서는 갱신 도중 한 사이클이 시작되지 않도록 타이머를
+잠시 멈추고 적용합니다.
+
+```sh
+sudo systemctl stop tqqq-va-autotrader.timer
+cd ~/tqqq-va-autotrader
+git pull
+tail data/va_path.csv
+sudo systemctl start tqqq-va-autotrader.timer
+systemctl list-timers --no-pager tqqq-va-autotrader.timer
+```
+
+`data/` 디렉터리는 컨테이너에 bind mount되어 있으므로 CSV만 변경했을 때는 Docker
+이미지를 다시 빌드하거나 systemd 서비스를 다시 설치할 필요가 없습니다. 코드나
+의존성, `Dockerfile`이 변경된 경우에만 별도로 이미지를 다시 빌드합니다.
+
 ## Status
 
 ```powershell
