@@ -64,6 +64,12 @@ git push origin main
 실전 운용 중인 Raspberry Pi에서는 갱신 도중 한 사이클이 시작되지 않도록 타이머를
 잠시 멈추고 적용합니다.
 
+```powershell
+ssh jyb@192.168.0.102
+```
+
+접속한 Raspberry Pi에서 다음 명령을 실행합니다.
+
 ```sh
 sudo systemctl stop tqqq-va-autotrader.timer
 cd ~/tqqq-va-autotrader
