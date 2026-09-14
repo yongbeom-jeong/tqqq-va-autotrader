@@ -32,15 +32,19 @@ class MarketAPI:
 
 
 def current_us_session(calendar: dict[str, Any], now: datetime | None = None) -> str:
-    today = calendar.get("today", {})
     now = now or datetime.now().astimezone()
-    for key, label in (("dayMarket", "DAY"), ("preMarket", "PRE"),
-                       ("regularMarket", "REGULAR"), ("afterMarket", "AFTER")):
-        session = today.get(key)
-        if not session:
-            continue
-        start = datetime.fromisoformat(session["startTime"])
-        end = datetime.fromisoformat(session["endTime"])
-        if start <= now.astimezone(start.tzinfo) < end:
-            return label
+    # A Korean daytime session can belong to the next US business date.
+    # Check all returned days using absolute timestamps, including overnight
+    # sessions belonging to the previous business date.
+    for day_key in ("today", "previousBusinessDay", "nextBusinessDay"):
+        day = calendar.get(day_key) or {}
+        for key, label in (("dayMarket", "DAY"), ("preMarket", "PRE"),
+                           ("regularMarket", "REGULAR"), ("afterMarket", "AFTER")):
+            session = day.get(key)
+            if not session:
+                continue
+            start = datetime.fromisoformat(session["startTime"])
+            end = datetime.fromisoformat(session["endTime"])
+            if start <= now.astimezone(start.tzinfo) < end:
+                return label
     return "CLOSED"

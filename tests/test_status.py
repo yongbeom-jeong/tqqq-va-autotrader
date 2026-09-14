@@ -48,6 +48,42 @@ def test_current_us_session_uses_api_times():
     assert current_us_session(calendar, datetime(2026, 8, 7, 21, tzinfo=timezone.utc)) == "CLOSED"
 
 
+@pytest.mark.parametrize("timestamp, expected", [
+    ("2026-09-14T08:59:59+09:00", "CLOSED"),
+    ("2026-09-14T09:00:00+09:00", "DAY"),
+    ("2026-09-14T11:00:00+09:00", "DAY"),
+    ("2026-09-14T02:00:00+00:00", "DAY"),
+    ("2026-09-14T16:50:00+09:00", "CLOSED"),
+    ("2026-09-13T11:00:00+09:00", "CLOSED"),
+])
+def test_next_business_day_day_market(timestamp, expected):
+    calendar = {
+        "today": {"date": "2026-09-13", "dayMarket": None},
+        "previousBusinessDay": None,
+        "nextBusinessDay": {"date": "2026-09-14", "dayMarket": {
+            "startTime": "2026-09-14T09:00:00+09:00",
+            "endTime": "2026-09-14T16:50:00+09:00",
+        }},
+    }
+    assert current_us_session(calendar, datetime.fromisoformat(timestamp)) == expected
+
+
+@pytest.mark.parametrize("day_key", ["today", "previousBusinessDay"])
+@pytest.mark.parametrize("timestamp, expected", [
+    ("2026-09-15T01:00:00+09:00", "REGULAR"),
+    ("2026-09-15T05:00:00+09:00", "AFTER"),
+    ("2026-09-15T07:00:00+09:00", "CLOSED"),
+])
+def test_overnight_sessions(day_key, timestamp, expected):
+    calendar = {day_key: {
+        "regularMarket": {"startTime": "2026-09-14T22:30:00+09:00",
+                          "endTime": "2026-09-15T05:00:00+09:00"},
+        "afterMarket": {"startTime": "2026-09-15T05:00:00+09:00",
+                        "endTime": "2026-09-15T07:00:00+09:00"},
+    }}
+    assert current_us_session(calendar, datetime.fromisoformat(timestamp)) == expected
+
+
 def test_us_calendar_uses_us_local_date():
     session = FakeSession([
         FakeResponse(200, {"access_token": "token", "expires_in": 86400}),

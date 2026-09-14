@@ -201,3 +201,53 @@ sudo sh deploy/install-systemd.sh run
 `sudo sh deploy/install-systemd.sh dry-run`을 실행합니다. systemd 서비스는 Docker
 컨테이너를 매번 새로 시작하지만 `data/`를 bind mount하므로 실행 상태와 CSV는
 호스트에 유지됩니다.
+
+## 로그 확인 및 저장
+
+프로그램은 실행 결과를 표준 출력으로, 오류를 표준 오류로 출력합니다. 별도의 로그 파일은
+자동 생성하지 않으며, Raspberry Pi의 systemd로 실행하면 출력이 journal에 기록됩니다.
+
+Windows에서 Pi에 접속한 뒤 아래 명령으로 로그를 확인합니다.
+
+```powershell
+ssh jyb@192.168.0.102
+```
+
+```sh
+# 최근 100줄 확인
+sudo journalctl -u tqqq-va-autotrader.service -n 100 --no-pager
+
+# 최근 로그와 이후 새로 나오는 로그를 실시간 확인 (Ctrl+C로 종료)
+sudo journalctl -u tqqq-va-autotrader.service -n 100 -f
+
+# 오늘 로그 전체 확인 (Pi에 설정된 시간대 기준)
+sudo journalctl -u tqqq-va-autotrader.service --since today --no-pager
+
+# 이번 부팅 이후 로그 확인 (네트워크 준비 실패 등 포함)
+sudo journalctl -u tqqq-va-autotrader.service -b --no-pager
+
+# 오늘 로그를 현재 디렉터리의 파일로 저장
+sudo journalctl -u tqqq-va-autotrader.service --since today --no-pager > trader-today.log
+```
+
+`-f`는 로그를 보는 명령이며 새 실행을 시작하지 않습니다. 타이머는 매시간 실행되고,
+프로그램의 결과는 한 사이클이 끝난 뒤 출력되므로 실행 중에는 새 로그가 없을 수 있습니다.
+서비스는 `docker compose run --rm`으로 컨테이너를 실행하므로 지난 자동 실행 기록은
+`journalctl`로 확인합니다.
+
+직접 실행한 명령의 결과를 화면과 파일에 함께 남기려면 저장소 디렉터리에서 실행합니다.
+`2>&1`은 오류 출력도 함께 저장하며, 아래 명령은 기존 파일에 이어 씁니다.
+
+```powershell
+# Windows PowerShell
+python -u main.py status 2>&1 | Tee-Object -FilePath status.log -Append
+```
+
+```sh
+# Raspberry Pi에서 Docker로 직접 조회
+docker compose run --rm trader python -u main.py status 2>&1 | tee -a status.log
+```
+
+계획을 기록하려면 위 명령의 `status`를 `dry-run`으로 바꾸고 `.env`의
+`DRY_RUN=true`를 설정합니다. `data/execution_state.json`은 주문 실행 상태 파일이며
+로그 파일이 아닙니다.
