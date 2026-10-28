@@ -77,12 +77,13 @@ EOF
 
 cat > /etc/systemd/system/tqqq-va-autotrader.timer <<'EOF'
 [Unit]
-Description=Run TQQQ VA AutoTrader hourly
+Description=TQQQ VA AutoTrader daily at 01:00 KST
 
 [Timer]
-OnCalendar=hourly
-Persistent=true
-AccuracySec=1min
+OnCalendar=Tue..Sat *-*-* 01:00:00 Asia/Seoul
+Persistent=false
+AccuracySec=1s
+RandomizedDelaySec=0
 Unit=tqqq-va-autotrader.service
 
 [Install]

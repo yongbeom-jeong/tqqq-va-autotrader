@@ -24,9 +24,9 @@ Copy-Item .env.example .env
 ## VA 경로 CSV 유지보수
 
 앞으로 정기적으로 갱신해야 하는 파일은 기본적으로 `data/va_path.csv`입니다.
-현재 데이터의 마지막 날짜가 지나기 전에 다음 달 경로를 추가합니다. 미국장
-휴장일이나 주말에도 프로그램은 매시간 실행되므로 날짜가 비지 않도록 달력의 모든
-날짜를 넣는 것을 권장합니다.
+현재 데이터의 마지막 날짜가 지나기 전에 다음 달 경로를 추가합니다. 자동 실행은
+한국시간 화~토요일 새벽 1시입니다. 수동 실행 시에도 날짜가 비지 않도록 CSV에는
+주말과 휴장일을 포함한 달력의 모든 날짜를 넣는 것을 권장합니다.
 
 첫 줄과 열 순서는 다음 형식을 그대로 유지합니다.
 
@@ -175,13 +175,30 @@ docker compose build trader
 sh deploy/pi-check.sh
 ```
 
-기본 권장 배포는 매시간 한 번 실행되는 shadow 모드입니다.
+기본 권장 배포는 한국시간 화~토요일 새벽 1시에 하루 한 번 실행되는 shadow
+모드입니다. 라이브 모드도 같은 실행 일정을 사용합니다.
 
 ```sh
 sudo sh deploy/install-systemd.sh dry-run
-systemctl list-timers tqqq-va-autotrader.timer
+TZ=Asia/Seoul systemctl list-timers --no-pager tqqq-va-autotrader.timer
 journalctl -u tqqq-va-autotrader.service -n 100 --no-pager
 ```
+
+타이머는 `OnCalendar=Tue..Sat *-*-* 01:00:00 Asia/Seoul`을 사용하므로 Pi의
+시간대 설정이나 미국 서머타임과 관계없이 한국시간 새벽 1시에 실행하도록 예약합니다.
+미국 동부시간으로는 전날 오전 11시, 서머타임에는 낮 12시에 해당하며, 오후 1시에
+조기 폐장하는 날에도 각각 2시간과 1시간의 여유가 있습니다. 휴장일 등 미국장이
+닫혀 있으면 라이브 `run`은 주문하지 않습니다. `dry-run`은 조회와 계획 계산을
+수행할 수 있습니다.
+
+`Persistent=false`이므로 Pi가 꺼져 있어 실행을 놓치면 부팅 직후 보충 실행하지
+않고 다음 예약을 기다립니다. 새벽 1시는 실행 예정 시각이며, 네트워크 준비 대기로
+실제 조회나 주문 시작은 늦어질 수 있습니다.
+
+이미 Pi의 `/etc/systemd/system/tqqq-va-autotrader.timer.d/99-daily.conf`에 같은
+일간 설정을 적용했다면 이번 타이머 변경만을 위해 `git pull`하거나 재설치할 필요는
+없습니다. 이 추가 설정 파일은 기본 타이머보다 우선하며 설치 스크립트도 이를
+수정하지 않습니다. 이후 CSV를 갱신할 때는 평소처럼 최신 변경을 받아야 합니다.
 
 즉시 한 사이클만 수동 실행하려면 다음 명령을 사용합니다.
 
@@ -230,8 +247,9 @@ sudo journalctl -u tqqq-va-autotrader.service -b --no-pager
 sudo journalctl -u tqqq-va-autotrader.service --since today --no-pager > trader-today.log
 ```
 
-`-f`는 로그를 보는 명령이며 새 실행을 시작하지 않습니다. 타이머는 매시간 실행되고,
-프로그램의 결과는 한 사이클이 끝난 뒤 출력되므로 실행 중에는 새 로그가 없을 수 있습니다.
+`-f`는 로그를 보는 명령이며 새 실행을 시작하지 않습니다. 타이머는 한국시간 화~토요일
+새벽 1시에 하루 한 번 실행됩니다. 프로그램의 결과는 한 사이클이 끝난 뒤 출력되므로
+실행 중에는 새 로그가 없을 수 있습니다.
 서비스는 `docker compose run --rm`으로 컨테이너를 실행하므로 지난 자동 실행 기록은
 `journalctl`로 확인합니다.
 
