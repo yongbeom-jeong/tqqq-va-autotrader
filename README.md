@@ -1,8 +1,49 @@
-# tqqq-va-autotrader
+# TQQQ Value Averaging AutoTrader
 
-Toss Securities Open API를 사용하는 TQQQ Value Averaging 자동매매 프로젝트입니다.
-현재 1단계는 주문을 전혀 생성하지 않는 read-only `status` 명령을 제공합니다.
-`dry-run` 명령은 CSV 경로를 기준으로 TQQQ/SGOV 리밸런싱 계획만 계산합니다.
+**Python · Toss Securities Open API · Docker · Raspberry Pi**
+
+Value Averaging 규칙을 바탕으로 TQQQ/SGOV의 리밸런싱을 계산하고, 주문 실행 전후의 상태를 관리하는 개인 자동화 프로젝트입니다. 목표는 수익률을 홍보하는 것이 아니라 **외부 API의 불확실한 응답과 중복 실행 가능성을 고려한 안전한 주문 처리 흐름**을 구현하는 것입니다.
+
+## 프로젝트 핵심 요약
+
+| 문제 | 구현한 대응 |
+| --- | --- |
+| 주문이 접수됐지만 응답이 유실될 수 있음 | 주문 전 `SUBMITTING` 상태를 먼저 저장, 결과 불명 시 `UNRESOLVED`로 표시하고 신규 주문 차단 |
+| 여러 프로세스가 동시에 주문할 수 있음 | 배타적 잠금 파일로 실행 중복 차단 |
+| 상태 저장 중 종료될 수 있음 | 임시 JSON 파일 작성 후 `os.replace()`로 원자적 교체 |
+| 첫 번째 주문의 체결 수량·금액이 예상과 다를 수 있음 | 주문 종료 상태 확인 후 잔고·시세·매수 가능 금액을 다시 반영해 다음 주문 계산 |
+| API 연결 없이 동작 검증 필요 | `status`, `dry-run`, Mock 기반 테스트를 분리 |
+| 상시 가동이 부담스러움 | Raspberry Pi, Docker, systemd timer로 정해진 시각에 실행하도록 구성 |
+
+**기술 스택:** Python, HTTP API, JSON, pytest, Docker Compose, Raspberry Pi OS, systemd
+
+### 주문 처리 흐름
+
+```text
+주문 가능 여부 확인
+  → 실행 잠금 획득
+  → 기존 미해결 실행 확인
+  → 주문 제출 전 상태 저장(SUBMITTING)
+  → 주문 API 요청
+  → 주문 조회·체결 또는 취소 결과 확인
+  → 필요한 경우 다음 주문 재계산
+  → 완료 상태 저장 및 잠금 해제
+```
+
+타임아웃 후 취소 요청을 보냈더라도 실제 주문 결과를 확인하지 못하면 신규 주문을 차단합니다. 이는 외부 증권사 API 전체에 걸쳐 정확히 한 번 실행을 보장하는 방식이 아니라, **불확실한 상태에서 재주문하지 않도록 하는 fail-closed 설계**입니다.
+
+### 주요 코드
+
+- [`execution/engine.py`](execution/engine.py): 주문 처리, 종료 상태 조회, 불확실한 실행 차단
+- [`persistence/state.py`](persistence/state.py): 실행 상태 영속화 및 잠금 파일 관리
+- [`va/calculator.py`](va/calculator.py): 리밸런싱 계산
+- [`main.py`](main.py): 상태 조회·계산·주문 실행 명령
+
+> **주의:** 실제 거래를 발생시킬 수 있는 코드입니다. `dry-run`은 주문하지 않으며, `run`은 `DRY_RUN=false`가 설정된 경우에만 실행됩니다. 본 문서는 투자 조언이나 실거래 안전성을 보증하지 않습니다.
+
+---
+
+## 사용 및 운영 설명
 
 ## Setup
 
